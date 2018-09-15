@@ -7,11 +7,18 @@ module Lib
     , getReadingDate
     ) where
 
-import Data.Time
-import Control.Applicative
+import           Control.Applicative
+import           Data.Time
 
 prompt :: String -> IO String
 prompt part = putStr part >> getLine >>=  (\line -> putStr "[y]/[n]\t" >> return line)
+
+get :: String-> IO (Maybe String)
+get part = do line <- prompt part
+              confirmation <- getLine
+              if confirmation == "y"
+              then if line == "" then return Nothing else return $ Just line
+              else getAuthor
 
 getTitle :: IO String
 getTitle = do
@@ -22,28 +29,14 @@ getTitle = do
             else getTitle
 
 getAuthor :: IO (Maybe String)
-getAuthor = do
-        line <- prompt "Author: "
-        confirmation <- getLine
-        if confirmation == "y"
-            then if line == "" then return Nothing else return $ Just line
-            else getAuthor
+getAuthor = get "Author: "
 
 getISBN :: IO (Maybe String)
-getISBN = do
-        line <- prompt "ISBN: "
-        confirmation <- getLine
-        if confirmation == "y"
-            then if line == "" then return Nothing else return $ Just line
-            else getAuthor
+getISBN = get "ISBN: "
 
 getPublisher :: IO (Maybe String)
-getPublisher = do
-        line <- prompt "Publisher: "
-        confirmation <- getLine
-        if confirmation == "y"
-            then if line == "" then return Nothing else return $ Just line
-            else getPublisher
+getPublisher = get "Publisher: "
+
 
 getYearPublished :: IO (Maybe Day)
 getYearPublished = do

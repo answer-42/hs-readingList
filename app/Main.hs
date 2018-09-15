@@ -14,12 +14,13 @@ import qualified Data.Vector          as V
 import           Lib
 import           System.Exit
 import           Text.Printf
+import           Text.Read            (readMaybe)
 
 import           System.IO            (BufferMode (BlockBuffering),
                                        hSetBuffering, stdout)
 import           System.IO.CodePage
 
-data Action = Add | Delete | Print | Help | Save | Quit | Unknown
+data Action = Add | Delete | Print | Help | Save | Quit | Unknown -- TODO: do we use Help qnd Unknown?
 
 parseArg :: String -> Action
 parseArg "a" = Add
@@ -119,10 +120,11 @@ applyArg db Add _ = do
 applyArg db Delete _ = do
     printf "Which book do you want to delete? (0-%i) " (pred $ V.length db)
     l <- getLine
-    let n = read l :: Int -- TODO: check if correctly parsed; use readMaybe
-    if n >= 0 && n < V.length db
-    then pure (deleteN n db)
-    else putStrLn "Invalid input" >> pure db
+    case readMaybe l of
+      Just n  ->  if n >= 0 && n < V.length db
+                     then pure (deleteN n db)
+                     else putStrLn "Invalid input" >> pure db
+      Nothing -> putStrLn "Invalid input" >> pure db
     where deleteN n db = uncurry (V.++) . second (V.drop 1) $ V.splitAt n db
 applyArg db Save path = do
     putStr "Do you want to save to file? [y]/[n] "
