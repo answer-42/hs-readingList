@@ -20,11 +20,12 @@ import           System.IO            (BufferMode (BlockBuffering),
                                        hSetBuffering, stdout)
 import           System.IO.CodePage
 
-data Action = Add | Delete | Print | Help | Save | Quit | Unknown -- TODO: do we use Help qnd Unknown?
+data Action = Add | Delete | Edit | Print | Help | Save | Quit | Unknown -- TODO: do we use Help qnd Unknown?
 
 parseArg :: String -> Action
 parseArg "a" = Add
 parseArg "d" = Delete
+parseArg "e" = Edit
 parseArg "p" = Print
 parseArg "s" = Save
 parseArg "h" = Help
@@ -35,6 +36,7 @@ printHelp :: IO ()
 printHelp = do
     putStrLn "[a] ... Add book"
     putStrLn "[d] ... Delete book"
+    putStrLn "[e] ... Edit book"
     putStrLn "[p] ... Print all books"
     putStrLn "[s] ... Save changes"
     putStrLn "[h] ... Show this help text"
@@ -89,14 +91,11 @@ prettyPrint (Book title author isbn pub pubDate readDate) =
     title (get author) (get pub) (getFromISBN isbn) (getFromYear pubDate) (getFromDate readDate)
     where
         get = fromMaybe ""
-
         getFromISBN (Just i) = show' i
             where show' = takeWhile (/= '\"') . dropWhile (== '\"') . show
         getFromISBN Nothing = ""
-
         getFromYear (Just t) = formatTime defaultTimeLocale "%Y" t
         getFromYear Nothing  = ""
-
         getFromDate (Just t) = formatTime defaultTimeLocale "%Y/%m/%d" t
         getFromDate Nothing  = ""
 
@@ -115,17 +114,23 @@ applyArg db Print _ = V.imapM_ (\i el -> putStr (printf "%5i\t" i) >> (putStr . 
 applyArg db Add _ = do
     book <- promptBook
     putStr $ prettyPrint book
-    -- TODO: confirmation
     return $ V.cons book db
 applyArg db Delete _ = do
     printf "Which book do you want to delete? (0-%i) " (pred $ V.length db)
     l <- getLine
-    case readMaybe l of
-      Just n  ->  if n >= 0 && n < V.length db
-                     then pure (deleteN n db)
-                     else putStrLn "Invalid input" >> pure db
-      Nothing -> putStrLn "Invalid input" >> pure db
+    let n = readMaybe l
+    if n >= (Just 0) && n < (Just $ V.length db)
+      then pure (deleteN (fromMaybe 0 n) db)
+      else putStrLn "Invalid input" >> pure db
     where deleteN n db = uncurry (V.++) . second (V.drop 1) $ V.splitAt n db
+applyArg db Edit _ = do
+    putStr "Which book do you want to edit? "
+    l <- getLine
+    let n = readMaybe l
+    if n >= (Just 0) && n < (Just $ V.length db)
+        then pure (editBook (fromMaybe 0 n) db)
+        else putStrLn "Invalid input" >> pure db
+    where editBook n db = db -- TODO
 applyArg db Save path = do
     putStr "Do you want to save to file? [y]/[n] "
     confirmation <- getLine
@@ -135,7 +140,7 @@ applyArg db Save path = do
     where saveToFile = BL.writeFile path (encodeDefaultOrderedByName (V.toList db))
 applyArg _ Quit _ = exitSuccess
 applyArg db Help _ = printHelp >> pure db
-applyArg db _ _ = printHelp >> pure db
+applyArg db Unknown _ = printHelp >> pure db
 
 unicodeRepl :: FilePath -> IO ()
 unicodeRepl path =
